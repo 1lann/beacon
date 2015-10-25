@@ -31,17 +31,16 @@ var CurrentStatus ping.Status
 var OnConnect func(player *Player) (message string)
 
 // Listen listens on the specified port to serve Minecraft protocol requests.
-func Listen(port string) {
+func Listen(port string) error {
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		log.Println("Failed to listen", err)
+		return err
 	}
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Println("Failed to accept", err)
-			return
+			return err
 		}
 
 		go handleConnection(conn)

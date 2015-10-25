@@ -30,9 +30,17 @@ var CurrentStatus ping.Status
 // displayed to the player.
 var OnConnect func(player *Player) (message string)
 
+var listener net.Listener
+
+// Stop stops the listener and causes Listen to return.
+func Stop() {
+	_ = listener.Close()
+}
+
 // Listen listens on the specified port to serve Minecraft protocol requests.
 func Listen(port string) error {
-	listener, err := net.Listen("tcp", ":"+port)
+	var err error
+	listener, err = net.Listen("tcp", ":"+port)
 	if err != nil {
 		return err
 	}
@@ -40,6 +48,11 @@ func Listen(port string) error {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
+			if strings.Contains(err.Error(),
+				"use of closed network connection") || err == io.EOF {
+				return nil
+			}
+
 			return err
 		}
 
@@ -139,5 +152,5 @@ func handlePacketID1(player *Player, ps protocol.PacketStream) error {
 		return nil
 	}
 
-	return ping.HandlePingPacket(ps.Stream)
+	return ping.HandlePingPacket(ps.Stream, CurrentStatus)
 }

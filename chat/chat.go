@@ -1,4 +1,4 @@
-// Package chat the symbols for message formatting for convenience.
+// Package chat contains the symbols for message formatting for convenience.
 package chat
 
 const (

@@ -39,9 +39,10 @@ type HandshakePacket struct {
 // Status is the container for the information to respond with
 // on the Minecraft server list menu.
 type Status struct {
-	OnlinePlayers int
-	MaxPlayers    int
-	Message       string
+	OnlinePlayers  int
+	MaxPlayers     int
+	Message        string
+	ShowConnection bool
 }
 
 // ReadHandshakePacket reads a handshake packet (packet ID 0) and decodes it.
@@ -92,7 +93,11 @@ func WriteHandshakeResponse(s protocol.Stream, status Status) error {
 
 // HandlePingPacket handles a ping packet used by the Minecraft client
 // used to measure the round trip time of the connection.
-func HandlePingPacket(s protocol.Stream) error {
+func HandlePingPacket(s protocol.Stream, status Status) error {
+	if !status.ShowConnection {
+		return nil
+	}
+
 	time, err := s.ReadInt64()
 	if err != nil {
 		return err

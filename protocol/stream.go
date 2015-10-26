@@ -79,12 +79,7 @@ func (s Stream) WritePacket(p *Packet) error {
 	lengthPacket := &Packet{}
 	lengthPacket.WriteVarInt(len(p.Data))
 
-	_, err := s.Write(lengthPacket.Data)
-	if err != nil {
-		return err
-	}
-
-	_, err = s.Write(p.Data)
+	_, err := s.Write(append(lengthPacket.Data, p.Data...))
 	if err != nil {
 		return err
 	}

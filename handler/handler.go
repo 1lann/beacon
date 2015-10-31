@@ -186,6 +186,8 @@ packetLoop:
 			if err := handlePacketID1(player, packetStream); err != nil {
 				log.Println("beacon: Failed to handle packet ID 1:", err)
 			}
+		case 122:
+			return
 		default:
 			log.Println("beacon: Unknown packet ID:", packetId)
 		}

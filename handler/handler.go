@@ -290,8 +290,6 @@ func handlePacketID1(player *Player, ps protocol.PacketStream) error {
 }
 
 func forwardConnection(player *Player) {
-	log.Println("beacon: Forwarding connection.")
-
 	remoteConn, err := net.Dial("tcp", player.ForwardAddress)
 	if err != nil {
 		log.Println("beacon: Failed to connect to remote:", err)

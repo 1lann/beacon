@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 // Player is the container for the information of a player and their
@@ -33,12 +34,12 @@ var forwarders map[string]string = make(map[string]string)
 var listener net.Listener
 
 // OnForwardConnect is called whenever a connection is forwarded to
-// the given IP address.
+// the given IP address, excluding server list pings.
 var OnForwardConnect func(ipAddress string)
 
 // OnForwardDisconnect is called when a forwarded connection is closed from
-// the given IP address.
-var OnForwardDisconnect func(ipAddress string)
+// the given IP address, excluding server list pings.
+var OnForwardDisconnect func(ipAddress string, duration time.Duration)
 
 // Stop stops the listener and causes Listen to return.
 func Stop() {
@@ -227,6 +228,7 @@ func handlePacketID0(player *Player, ps protocol.PacketStream) error {
 			initialPacket.WriteVarInt(handshake.NextState)
 			player.InitialPacket = initialPacket
 			player.ForwardAddress = address
+			player.State = handshake.NextState
 			return nil
 		}
 
@@ -296,16 +298,19 @@ func forwardConnection(player *Player) {
 		return
 	}
 
-	if OnForwardConnect != nil {
+	if OnForwardConnect != nil && player.State == 2 {
 		go OnForwardConnect(player.ForwardAddress)
+		startTime := time.Now()
+
+		if OnForwardDisconnect != nil {
+			defer func() {
+				go OnForwardDisconnect(player.ForwardAddress,
+					time.Now().Sub(startTime))
+			}()
+		}
 	}
 
 	defer remoteConn.Close()
-	defer func() {
-		if OnForwardDisconnect != nil {
-			go OnForwardDisconnect(player.ForwardAddress)
-		}
-	}()
 
 	lengthPacket := &protocol.Packet{}
 	lengthPacket.WriteVarInt(len(player.InitialPacket.Data))

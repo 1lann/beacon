@@ -256,14 +256,8 @@ func handlePacketID0(player *Player, ps protocol.PacketStream) error {
 		if !found {
 			log.Println("beacon: Missing handler for hostname: " +
 				player.Hostname)
-			err := ping.DisplayMessage(ps.Stream,
-				"[ Beacon Server Error ]\n"+
-					"A connection handler has not been set for this hostname.")
-			if err != nil {
-				return err
-			}
-
-			break
+			player.ShouldClose = true
+			return nil
 		}
 
 		err = ping.DisplayMessage(ps.Stream, handler(player))

@@ -14,27 +14,35 @@ import (
 // Player is the container for the information of a player and their
 // connection. See OnConnect.
 type Player struct {
-	IP         string
-	Username   string
-	State      int
-	Stream     protocol.Stream
-	Connection net.Conn
+	IPAddress      string
+	Username       string
+	Hostname       string
+	ShouldClose    bool
+	ForwardAddress string
+	InitialPacket  *protocol.Packet
+	State          int
+	Stream         protocol.Stream
+	Connection     net.Conn
 }
 
-// CurrentStatus is the information the server responds with if a handshake
-// is requested, and will be displayed on the client's server list.
-var CurrentStatus ping.Status
+type Handler func(player *Player) (message string)
 
-// OnConnect is the callback function that is called when a player attempts
-// to connect to the server. The function should return the message to be
-// displayed to the player.
-var OnConnect func(player *Player) (message string)
-
+var statuses map[string]*ping.Status = make(map[string]*ping.Status)
+var handlers map[string]Handler = make(map[string]Handler)
+var forwarders map[string]string = make(map[string]string)
 var listener net.Listener
+
+// OnForwardConnect is called whenever a connection is forwarded to
+// the given IP address.
+var OnForwardConnect func(ipAddress string)
+
+// OnForwardDisconnect is called when a forwarded connection is closed from
+// the given IP address.
+var OnForwardDisconnect func(ipAddress string)
 
 // Stop stops the listener and causes Listen to return.
 func Stop() {
-	_ = listener.Close()
+	listener.Close()
 }
 
 // Listen listens on the specified port to serve Minecraft protocol requests.
@@ -60,17 +68,93 @@ func Listen(port string) error {
 	}
 }
 
+// SetStatus sets the current status that is to be displayed on the
+// server list for the given matching hostnames.
+func SetStatus(hostnames []string, status *ping.Status) {
+	for _, hostname := range hostnames {
+		hostname = strings.ToLower(hostname)
+
+		statuses[hostname] = status
+	}
+}
+
+// ClearStatus clears the current status that was to be displayed on the
+// server list for the given matching hostnames.
+func ClearStatus(hostnames []string) {
+	for _, hostname := range hostnames {
+		hostname = strings.ToLower(hostname)
+
+		if _, found := statuses[hostname]; found {
+			delete(statuses, hostname)
+		}
+	}
+}
+
+// Handle sets the handler function that is called when a player attempts
+// to connect to the server with the given list of hostnames. The function
+// should return the message to be displayed to the player. Overrides any
+// handlers set by Forward.
+func Handle(hostnames []string, handler Handler) {
+	for _, hostname := range hostnames {
+		hostname = strings.ToLower(hostname)
+
+		if _, found := forwarders[hostname]; found {
+			delete(forwarders, hostname)
+		}
+		handlers[hostname] = handler
+	}
+}
+
+// Forward forwards the connection to the specified address when a player
+// attempts to connect to the server with the given list of hostnames.
+// The address MUST include the port number (usually 25565).
+// Overrides any handlers set by Handle, and also forwards any server
+// list status requests, but does NOT override any statuses stored.
+// If you call Handle again, the previously used Status will be used.
+func Forward(hostnames []string, address string) {
+	for _, hostname := range hostnames {
+		hostname = strings.ToLower(hostname)
+
+		if _, found := handlers[hostname]; found {
+			delete(handlers, hostname)
+		}
+		forwarders[hostname] = address
+	}
+}
+
+// ClearHandlers clears any connection handlers from Handle and Forward
+// binded to the given list of hostnames.
+func ClearHandlers(hostnames []string) {
+	for _, hostname := range hostnames {
+		hostname = strings.ToLower(hostname)
+
+		if _, found := handlers[hostname]; found {
+			delete(handlers, hostname)
+		}
+
+		if _, found := forwarders[hostname]; found {
+			delete(forwarders, hostname)
+		}
+	}
+}
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	player := &Player{
-		IP:         strings.Split(conn.RemoteAddr().String(), ":")[0],
-		Stream:     protocol.NewStream(conn),
-		Connection: conn,
-		State:      1,
+		IPAddress:   strings.Split(conn.RemoteAddr().String(), ":")[0],
+		Stream:      protocol.NewStream(conn),
+		Connection:  conn,
+		ShouldClose: false,
+		State:       1,
 	}
 
+packetLoop:
 	for {
+		if player.ShouldClose {
+			return
+		}
+
 		packetStream, _, err := player.Stream.GetPacketStream()
 
 		if err != nil {
@@ -78,36 +162,44 @@ func handleConnection(conn net.Conn) {
 				return
 			}
 
-			log.Println("Failed to read next packet:", err)
+			log.Println("beacon: Failed to read next packet:", err)
 			return
 		}
 
 		packetId, err := packetStream.ReadVarInt()
 		if err != nil {
-			log.Println("Failed to read packet ID:", err)
+			log.Println("beacon: Failed to read packet ID:", err)
 			return
 		}
 
 		switch packetId {
 		case 0:
-			if err := handlePacketID0(player, packetStream); err != nil {
-				log.Println("Failed to handle packet ID 0:", err)
+			err := handlePacketID0(player, packetStream)
+			if err != nil {
+				log.Println("beacon: Failed to handle packet ID 0:", err)
+			}
+
+			if player.ForwardAddress != "" {
+				break packetLoop
 			}
 		case 1:
 			if err := handlePacketID1(player, packetStream); err != nil {
-				log.Println("Failed to handle packet ID 1:", err)
+				log.Println("beacon: Failed to handle packet ID 1:", err)
 			}
 		default:
-			log.Println("Unknown packet ID:", packetId)
+			log.Println("beacon: Unknown packet ID:", packetId)
 		}
 
 		numBytes, err := packetStream.ExhaustPacket()
 		if err != nil {
-			log.Println("Failed to exahust", numBytes, "packets:", err)
+			log.Println("beacon: Failed to exahust", numBytes, "packets:", err)
 		} else if numBytes > 0 {
-			log.Println("Exhausted", numBytes, "bytes. (Exhausting packets shouldn't happen).")
+			log.Println("beacon: Exhausted", numBytes,
+				"bytes. (Exhausting packets shouldn't happen).")
 		}
 	}
+
+	forwardConnection(player)
 }
 
 func handlePacketID0(player *Player, ps protocol.PacketStream) error {
@@ -119,11 +211,31 @@ func handlePacketID0(player *Player, ps protocol.PacketStream) error {
 	case 1:
 		handshake, err := ping.ReadHandshakePacket(ps.Stream)
 		if err != nil {
-			log.Println("Handshake packet read error:", err)
+			log.Println("beacon: Handshake packet read error:", err)
+		}
+
+		player.Hostname = strings.ToLower(handshake.ServerAddress)
+
+		if address, found := forwarders[player.Hostname]; found {
+			// Write the handshake data
+			initialPacket := protocol.NewPacketWithId(0x00)
+			initialPacket.WriteVarInt(handshake.ProtocolVersion)
+			initialPacket.WriteString(handshake.ServerAddress)
+			initialPacket.WriteUInt16(handshake.ServerPort)
+			initialPacket.WriteVarInt(handshake.NextState)
+			player.InitialPacket = initialPacket
+			player.ForwardAddress = address
+			return nil
 		}
 
 		if handshake.NextState == 1 {
-			err := ping.WriteHandshakeResponse(ps.Stream, CurrentStatus)
+			status, found := statuses[player.Hostname]
+			if !found {
+				player.ShouldClose = true
+				return nil
+			}
+
+			err := ping.WriteHandshakeResponse(ps.Stream, *status)
 			if err != nil {
 				return err
 			}
@@ -138,7 +250,21 @@ func handlePacketID0(player *Player, ps protocol.PacketStream) error {
 
 		player.Username = username
 
-		err = ping.DisplayMessage(ps.Stream, OnConnect(player))
+		handler, found := handlers[player.Hostname]
+		if !found {
+			log.Println("beacon: Missing handler for hostname: " +
+				player.Hostname)
+			err := ping.DisplayMessage(ps.Stream,
+				"[ Beacon Server Error ]\n"+
+					"A connection handler has not been set for this hostname.")
+			if err != nil {
+				return err
+			}
+
+			break
+		}
+
+		err = ping.DisplayMessage(ps.Stream, handler(player))
 		if err != nil {
 			return err
 		}
@@ -152,5 +278,56 @@ func handlePacketID1(player *Player, ps protocol.PacketStream) error {
 		return nil
 	}
 
-	return ping.HandlePingPacket(ps.Stream, CurrentStatus)
+	status, found := statuses[player.Hostname]
+	if !found {
+		status = &ping.Status{
+			ShowConnection: false,
+		}
+	}
+
+	return ping.HandlePingPacket(ps.Stream, *status)
+}
+
+func forwardConnection(player *Player) {
+	log.Println("beacon: Forwarding connection.")
+
+	remoteConn, err := net.Dial("tcp", player.ForwardAddress)
+	if err != nil {
+		log.Println("beacon: Failed to connect to remote:", err)
+		return
+	}
+
+	if OnForwardConnect != nil {
+		go OnForwardConnect(player.ForwardAddress)
+	}
+
+	defer remoteConn.Close()
+	defer func() {
+		if OnForwardDisconnect != nil {
+			go OnForwardDisconnect(player.ForwardAddress)
+		}
+	}()
+
+	lengthPacket := &protocol.Packet{}
+	lengthPacket.WriteVarInt(len(player.InitialPacket.Data))
+
+	_, err = remoteConn.Write(append(lengthPacket.Data,
+		player.InitialPacket.Data...))
+	if err != nil {
+		return
+	}
+
+	connChannel := make(chan bool)
+
+	go func() {
+		io.Copy(remoteConn, player.Connection)
+		connChannel <- true
+	}()
+
+	go func() {
+		io.Copy(player.Connection, remoteConn)
+		connChannel <- true
+	}()
+
+	<-connChannel
 }

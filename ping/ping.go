@@ -10,9 +10,9 @@ import (
 
 // Internally used struct for JSON serialization.
 type StatusResponse struct {
-	Version     `json:"version"`
-	Players     `json:"players"`
-	Description string `json:"description"`
+	Version     Version `json:"version"`
+	Players     Players `json:"players"`
+	Description string  `json:"description"`
 }
 
 // Internally used struct for JSON serialization.

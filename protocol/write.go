@@ -60,12 +60,12 @@ func (p *Packet) WriteInt64(data int64) {
 }
 
 func (p *Packet) WriteFloat32(data float32) {
-	_ = binary.Write(p, binary.BigEndian, data)
+	binary.Write(p, binary.BigEndian, data)
 	return
 }
 
 func (p *Packet) WriteFloat64(data float64) {
-	_ = binary.Write(p, binary.BigEndian, data)
+	binary.Write(p, binary.BigEndian, data)
 	return
 }
 

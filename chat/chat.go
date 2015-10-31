@@ -1,6 +1,10 @@
 // Package chat contains the symbols for message formatting for convenience.
 package chat
 
+import (
+	"strings"
+)
+
 const (
 	S = "§"
 
@@ -28,3 +32,7 @@ const (
 	Italic        = S + "o"
 	Reset         = S + "r"
 )
+
+func Format(message string) string {
+	return strings.Replace(message, "&", S, -1)
+}

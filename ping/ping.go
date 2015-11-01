@@ -70,7 +70,7 @@ func ReadHandshakePacket(s protocol.Stream) (HandshakePacket, error) {
 func WriteHandshakeResponse(s protocol.Stream, status Status) error {
 	statusResponse := StatusResponse{
 		Version: Version{
-			Name:     "1.7.10",
+			Name:     "github.com/1lann/beacon 1.7.10",
 			Protocol: 5,
 		},
 		Players: Players{

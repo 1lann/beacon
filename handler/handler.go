@@ -207,6 +207,21 @@ packetLoop:
 
 func handlePacketID0(player *Player, ps protocol.PacketStream) error {
 	if ps.GetRemainingBytes() == 0 {
+		if player.State != 1 {
+			return nil
+		}
+
+		status, found := statuses[player.Hostname]
+		if !found {
+			player.ShouldClose = true
+			return nil
+		}
+
+		err := ping.WriteHandshakeResponse(ps.Stream, *status)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
 
@@ -233,16 +248,7 @@ func handlePacketID0(player *Player, ps protocol.PacketStream) error {
 		}
 
 		if handshake.NextState == 1 {
-			status, found := statuses[player.Hostname]
-			if !found {
-				player.ShouldClose = true
-				return nil
-			}
-
-			err := ping.WriteHandshakeResponse(ps.Stream, *status)
-			if err != nil {
-				return err
-			}
+			player.State = 1
 		} else if handshake.NextState == 2 {
 			player.State = 2
 		}

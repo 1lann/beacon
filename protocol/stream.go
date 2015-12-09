@@ -25,7 +25,9 @@ func (s PacketStream) ExhaustPacket() (int, error) {
 		return 0, nil
 	}
 
-	return int(s.reader.N), s.ReadFull(make([]byte, s.reader.N))
+	bytesRemaining := int(s.reader.N)
+
+	return bytesRemaining, s.ReadFull(make([]byte, bytesRemaining))
 }
 
 func (s PacketStream) GetRemainingBytes() int {

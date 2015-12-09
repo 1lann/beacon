@@ -75,11 +75,11 @@ func (p *Packet) WriteString(data string) {
 }
 
 func (p *Packet) WriteVarInt(data int) {
-	p.WriteVarLong(int64(data))
+	p.WriteVarInt64(int64(data))
 }
 
 // Code from thinkofdeath's steven.
-func (p *Packet) WriteVarLong(data int64) {
+func (p *Packet) WriteVarInt64(data int64) {
 	ui := uint64(data)
 	for {
 		if (ui & ^uint64(0x7F)) == 0 {

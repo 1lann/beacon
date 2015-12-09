@@ -123,7 +123,7 @@ func (s Stream) ReadString() (string, error) {
 }
 
 func (s Stream) ReadVarInt() (int, error) {
-	num, err := s.ReadVarLong()
+	num, err := s.ReadVarInt64()
 	if err != nil {
 		return 0, err
 	}
@@ -131,7 +131,7 @@ func (s Stream) ReadVarInt() (int, error) {
 }
 
 // Code from thinkofdeath's steven.
-func (s Stream) ReadVarLong() (int64, error) {
+func (s Stream) ReadVarInt64() (int64, error) {
 	var size uint
 	var num uint64
 

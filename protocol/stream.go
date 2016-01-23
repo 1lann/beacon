@@ -6,10 +6,13 @@ import (
 	"io"
 )
 
+// A Stream represents a two-way stream of bytes to and from the client.
 type Stream struct {
 	io.ReadWriter
 }
 
+// A PacketStream is a subset of a Stream which is limited to being only able
+// to read a single packet from the stream.
 type PacketStream struct {
 	Stream
 	reader *io.LimitedReader
@@ -20,6 +23,8 @@ type readWriter struct {
 	io.Writer
 }
 
+// ExhaustPacket reads all the remaining data from the PacketStream, so the
+// cursor of the Stream is at the start of the next packet.
 func (s PacketStream) ExhaustPacket() (int, error) {
 	if s.reader.N == 0 {
 		return 0, nil
@@ -30,10 +35,14 @@ func (s PacketStream) ExhaustPacket() (int, error) {
 	return bytesRemaining, s.ReadFull(make([]byte, bytesRemaining))
 }
 
+// GetRemainingBytes returns the number of remaining bytes in the PacketStream
+// for the current packet.
 func (s PacketStream) GetRemainingBytes() int {
 	return int(s.reader.N)
 }
 
+// GetPacketStream reads the next VarInt, and creates a PacketStream limited
+// by the VarInt representing the entirety of the packet.
 func (s Stream) GetPacketStream() (PacketStream, int, error) {
 	length, err := s.ReadVarInt()
 	if err != nil {
@@ -50,11 +59,13 @@ func (s Stream) GetPacketStream() (PacketStream, int, error) {
 		length, nil
 }
 
+// NewStream creates a new Stream from a io.ReadWriter such as from a net.Conn
 func NewStream(readWriter io.ReadWriter) Stream {
 	return Stream{readWriter}
 }
 
-// Returns decoded (little endian) data of length data.
+// DecodeReadFull returns decoded (little endian) data of len(data), or what's
+// left of the Stream if there is less data remaining available for the stream.
 func (s Stream) DecodeReadFull(data []byte) error {
 	_, err := io.ReadFull(s, data)
 	if err != nil {
@@ -68,6 +79,8 @@ func (s Stream) DecodeReadFull(data []byte) error {
 	return nil
 }
 
+// ReadFull returns raw data (big endian) of len(data), or what's left
+// of the Stream if there is less data remaining available for the stream.
 func (s Stream) ReadFull(data []byte) error {
 	_, err := io.ReadFull(s, data)
 	if err != nil {
@@ -77,6 +90,8 @@ func (s Stream) ReadFull(data []byte) error {
 	return nil
 }
 
+// WritePacket writes the length of the Packet as a VarInt, and the Packet's
+// Data (payload) to the stream.
 func (s Stream) WritePacket(p *Packet) error {
 	lengthPacket := &Packet{}
 	lengthPacket.WriteVarInt(len(p.Data))

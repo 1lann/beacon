@@ -8,21 +8,18 @@ import (
 	"github.com/1lann/beacon/protocol"
 )
 
-// Internally used struct for JSON serialization.
-type StatusResponse struct {
-	Version     Version `json:"version"`
-	Players     Players `json:"players"`
+type statusResponse struct {
+	Version     version `json:"version"`
+	Players     players `json:"players"`
 	Description string  `json:"description"`
 }
 
-// Internally used struct for JSON serialization.
-type Version struct {
+type version struct {
 	Name     string `json:"name"`
 	Protocol int    `json:"protocol"`
 }
 
-// Internally used struct for JSON serialization.
-type Players struct {
+type players struct {
 	Max    int `json:"max"`
 	Online int `json:"online"`
 }
@@ -68,12 +65,12 @@ func ReadHandshakePacket(s protocol.Stream) (HandshakePacket, error) {
 // WriteHandshakeResponse writes a response with a status that will be
 // displayed on the requesting player's server list menu.
 func WriteHandshakeResponse(s protocol.Stream, status Status) error {
-	statusResponse := StatusResponse{
-		Version: Version{
+	statusResponse := statusResponse{
+		Version: version{
 			Name:     "github.com/1lann/beacon 1.7.10",
 			Protocol: 5,
 		},
-		Players: Players{
+		Players: players{
 			Max:    status.MaxPlayers,
 			Online: status.OnlinePlayers,
 		},

@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Constants for message formatting for convenience.
 const (
 	S = "§"
 
@@ -33,6 +34,14 @@ const (
 	Reset         = S + "r"
 )
 
+// Format formats the message given by replacing all & with § so you can use
+// color codes like "&4" for red.
+//
+// For example:
+//
+//     Format("&4Hello!")
+//
+// returns "§4Hello!"
 func Format(message string) string {
 	return strings.Replace(message, "&", S, -1)
 }

@@ -82,7 +82,7 @@ func WriteHandshakeResponse(s protocol.Stream, status Status) error {
 		return err
 	}
 
-	responsePacket := protocol.NewPacketWithId(0x00)
+	responsePacket := protocol.NewPacketWithID(0x00)
 	responsePacket.WriteString(string(data))
 	err = s.WritePacket(responsePacket)
 	return err
@@ -99,7 +99,7 @@ func HandlePingPacket(s protocol.Stream, status Status) error {
 	if err != nil {
 		return err
 	}
-	responsePacket := protocol.NewPacketWithId(0x01)
+	responsePacket := protocol.NewPacketWithID(0x01)
 	responsePacket.WriteInt64(time)
 	err = s.WritePacket(responsePacket)
 	return err
@@ -108,7 +108,7 @@ func HandlePingPacket(s protocol.Stream, status Status) error {
 // DisplayMessage responds with a disconnect message to the player
 // when they attempt to connect to the server.
 func DisplayMessage(s protocol.Stream, message string) error {
-	responsePacket := protocol.NewPacketWithId(0x00)
+	responsePacket := protocol.NewPacketWithID(0x00)
 
 	chatMessage := message
 

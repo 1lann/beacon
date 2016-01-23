@@ -26,11 +26,13 @@ type Player struct {
 	Connection     net.Conn
 }
 
+// A Handler is used for handling when a player attempts to connect to the
+// server. See Handle.
 type Handler func(player *Player) (message string)
 
-var statuses map[string]*ping.Status = make(map[string]*ping.Status)
-var handlers map[string]Handler = make(map[string]Handler)
-var forwarders map[string]string = make(map[string]string)
+var statuses = make(map[string]*ping.Status)
+var handlers = make(map[string]Handler)
+var forwarders = make(map[string]string)
 var listener net.Listener
 
 // OnForwardConnect is called whenever a connection is forwarded to
@@ -167,13 +169,13 @@ packetLoop:
 			return
 		}
 
-		packetId, err := packetStream.ReadVarInt()
+		packetID, err := packetStream.ReadVarInt()
 		if err != nil {
 			log.Println("beacon: Failed to read packet ID:", err)
 			return
 		}
 
-		switch packetId {
+		switch packetID {
 		case 0:
 			err := handlePacketID0(player, packetStream)
 			if err != nil {
@@ -190,14 +192,14 @@ packetLoop:
 		case 122:
 			return
 		default:
-			log.Println("beacon: Unknown packet ID:", packetId)
+			log.Println("beacon: Unknown packet ID:", packetID)
 		}
 
 		numBytes, err := packetStream.ExhaustPacket()
 		if err != nil {
 			log.Println("beacon: Failed to exahust", numBytes, "packets:", err)
 		} else if numBytes > 0 {
-			log.Println("packet id:", packetId)
+			log.Println("packet id:", packetID)
 			log.Println("beacon: Exhausted", numBytes,
 				"bytes. (Exhausting packets shouldn't happen).")
 		}
@@ -237,7 +239,7 @@ func handlePacketID0(player *Player, ps protocol.PacketStream) error {
 
 		if address, found := forwarders[player.Hostname]; found {
 			// Write the handshake data
-			initialPacket := protocol.NewPacketWithId(0x00)
+			initialPacket := protocol.NewPacketWithID(0x00)
 			initialPacket.WriteVarInt(handshake.ProtocolVersion)
 			initialPacket.WriteString(handshake.ServerAddress)
 			initialPacket.WriteUInt16(handshake.ServerPort)

@@ -5,6 +5,8 @@ import (
 	"errors"
 )
 
+// ErrInvalidData is returned when you attempt to read a piece of data
+// that cannot possibly be of the type you are trying to read as.
 var ErrInvalidData = errors.New("protocol: invalid data")
 
 // ReadByte reads the next single byte from the stream.
@@ -78,7 +80,7 @@ func (s Stream) ReadInt32() (int32, error) {
 	return int32(binary.LittleEndian.Uint32(b)), nil
 }
 
-// ReadInt32 reads the next 8 bytes as an int64 (a long) from the stream.
+// ReadInt64 reads the next 8 bytes as an int64 (a long) from the stream.
 func (s Stream) ReadInt64() (int64, error) {
 	b := make([]byte, 8)
 	err := s.DecodeReadFull(b)
@@ -101,7 +103,7 @@ func (s Stream) ReadFloat32() (float32, error) {
 	return result, nil
 }
 
-// ReadFloat32 reads the next 8 bytes as a float64 (a double-precision float)
+// ReadFloat64 reads the next 8 bytes as a float64 (a double-precision float)
 // from the stream.
 func (s Stream) ReadFloat64() (float64, error) {
 	var result float64
@@ -134,7 +136,7 @@ func (s Stream) ReadString() (string, error) {
 	return string(data), nil
 }
 
-// ReadString reads the next couple of bytes which corresponds to a VarInt
+// ReadVarInt reads the next couple of bytes which corresponds to a VarInt
 // as an int from the stream.
 func (s Stream) ReadVarInt() (int, error) {
 	num, err := s.ReadVarInt64()
@@ -144,7 +146,7 @@ func (s Stream) ReadVarInt() (int, error) {
 	return int(num), nil
 }
 
-// ReadString reads the next couple of bytes which corresponds to a VarInt
+// ReadVarInt64 reads the next couple of bytes which corresponds to a VarInt
 // as an int64 from the stream.
 //
 // This code is taken from thinkofdeath's steven

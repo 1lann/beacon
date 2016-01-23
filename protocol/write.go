@@ -10,9 +10,9 @@ type Packet struct {
 	Data []byte
 }
 
-// NewPacketWithId returns a new Packet with the Id written to the start
+// NewPacketWithID returns a new Packet with the Id written to the start
 // of the Packet.
-func NewPacketWithId(id int) *Packet {
+func NewPacketWithID(id int) *Packet {
 	p := &Packet{}
 	p.WriteVarInt(id)
 	return p

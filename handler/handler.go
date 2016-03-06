@@ -240,7 +240,7 @@ func handlePacketID0(player *Player, ps protocol.PacketStream) error {
 		if address, found := forwarders[player.Hostname]; found {
 			// Write the handshake data
 			initialPacket := protocol.NewPacketWithID(0x00)
-			initialPacket.WriteVarInt(handshake.ProtocolVersion)
+			initialPacket.WriteVarInt(handshake.ProtocolNumber)
 			initialPacket.WriteString(handshake.ServerAddress)
 			initialPacket.WriteUInt16(handshake.ServerPort)
 			initialPacket.WriteVarInt(handshake.NextState)
@@ -320,6 +320,7 @@ func forwardConnection(player *Player) {
 	}
 
 	defer remoteConn.Close()
+	defer player.Connection.Close()
 
 	lengthPacket := &protocol.Packet{}
 	lengthPacket.WriteVarInt(len(player.InitialPacket.Data))
@@ -331,15 +332,22 @@ func forwardConnection(player *Player) {
 	}
 
 	connChannel := make(chan bool)
+	connOpen := true
 
 	go func() {
 		io.Copy(remoteConn, player.Connection)
-		connChannel <- true
+		if connOpen {
+			connOpen = false
+			connChannel <- true
+		}
 	}()
 
 	go func() {
 		io.Copy(player.Connection, remoteConn)
-		connChannel <- true
+		if connOpen {
+			connOpen = false
+			connChannel <- true
+		}
 	}()
 
 	<-connChannel

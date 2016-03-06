@@ -24,13 +24,25 @@ type players struct {
 	Online int `json:"online"`
 }
 
+type releaseName struct {
+	protocol int
+	name     string
+}
+
+var releaseNames = []releaseName{
+	{4, "1.7.5"},
+	{5, "1.7.10"},
+	{47, "1.8.9"},
+	{107, "1.9"},
+}
+
 // HandshakePacket contains the decoded data from a handshake packet.
 // See ReadHandshakePacket.
 type HandshakePacket struct {
-	ProtocolVersion int
-	ServerAddress   string
-	ServerPort      uint16
-	NextState       int
+	ProtocolNumber int
+	ServerAddress  string
+	ServerPort     uint16
+	NextState      int
 }
 
 // Status is the container for the information to respond with
@@ -40,13 +52,27 @@ type Status struct {
 	MaxPlayers     int
 	Message        string
 	ShowConnection bool
+	// ProtocolNumber is the internal protocol version number to respond with
+	// that can be found at http://wiki.vg/Protocol_version_numbers
+	ProtocolNumber int
+}
+
+// getReleaseName returns the release name for a protocol version number.
+func getReleaseName(protocolNumber int) string {
+	for _, release := range releaseNames {
+		if protocolNumber <= release.protocol {
+			return release.name
+		}
+	}
+
+	return "future"
 }
 
 // ReadHandshakePacket reads a handshake packet (packet ID 0) and decodes it.
 func ReadHandshakePacket(s protocol.Stream) (HandshakePacket, error) {
 	handshake := HandshakePacket{}
 	var err error
-	if handshake.ProtocolVersion, err = s.ReadVarInt(); err != nil {
+	if handshake.ProtocolNumber, err = s.ReadVarInt(); err != nil {
 		return HandshakePacket{}, err
 	}
 
@@ -67,8 +93,9 @@ func ReadHandshakePacket(s protocol.Stream) (HandshakePacket, error) {
 func WriteHandshakeResponse(s protocol.Stream, status Status) error {
 	statusResponse := statusResponse{
 		Version: version{
-			Name:     "github.com/1lann/beacon 1.7.10",
-			Protocol: 5,
+			Name: "1lann/beacon " +
+				getReleaseName(status.ProtocolNumber),
+			Protocol: status.ProtocolNumber,
 		},
 		Players: players{
 			Max:    status.MaxPlayers,

@@ -119,6 +119,7 @@ func WriteHandshakeResponse(s protocol.Stream, status Status) error {
 // used to measure the round trip time of the connection.
 func HandlePingPacket(s protocol.Stream, status Status) error {
 	if !status.ShowConnection {
+		s.ReadInt64()
 		return nil
 	}
 

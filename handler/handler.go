@@ -199,7 +199,6 @@ packetLoop:
 		if err != nil {
 			log.Println("beacon: Failed to exahust", numBytes, "packets:", err)
 		} else if numBytes > 0 {
-			log.Println("packet id:", packetID)
 			log.Println("beacon: Exhausted", numBytes,
 				"bytes. (Exhausting packets shouldn't happen).")
 		}
